@@ -36,7 +36,7 @@ textarea:focus{outline:none}textarea::placeholder{color:var(--mu)}
 .add{width:100%;border-color:var(--ac);color:var(--ac);padding:10px;margin-bottom:14px}
 details{background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:14px 16px;margin-top:6px}
 summary{cursor:pointer;font-size:14px;font-weight:600}
-.hint{font-size:12px;color:var(--mu);margin:6px 0 0}
+.hint{font-size:12px;color:var(--mu);margin:6px 0 0}.an{font-size:13px;line-height:1.7;white-space:pre-wrap;margin-top:8px;color:var(--mu)}
 </style>
 </head>
 <body>
@@ -50,7 +50,7 @@ summary{cursor:pointer;font-size:14px;font-weight:600}
 <option value="4000">프리미엄 4,000</option>
 <option value="25000">프리미엄+ 25,000</option>
 </select>
-<label><input type="checkbox" id="num" checked> 번호 붙이기 (1/3)</label>
+
 <button id="all">전체 복사</button>
 </div>
 
@@ -63,6 +63,7 @@ summary{cursor:pointer;font-size:14px;font-weight:600}
 <textarea id="bulk" placeholder="긴 글을 붙여넣으세요"></textarea>
 <div class="row"><button class="p" id="split">타래로 나누기</button></div>
 </details>
+<details><summary>글자수가 트위터와 다를 때: 글자 분석</summary><p class="hint">마지막으로 입력한 카드의 글자를 종류별로 나눠 보여 줍니다. 눈에 보이지 않는 특수문자도 찾을 수 있어요.</p><div class="row"><button id="an">분석하기</button></div><div class="an" id="anout"></div></details>
 </main>
 <script>
 (function(){
@@ -71,12 +72,12 @@ var URLRE=/https?:\/\/[^\s]+/g;
 var seg=(typeof Intl!=="undefined"&&Intl.Segmenter)?new Intl.Segmenter("ko",{granularity:"grapheme"}):null;
 var EMO=/\p{Extended_Pictographic}/u;
 var items=[""],LS="tweet-counter-v2";
-try{var sv=JSON.parse(localStorage.getItem(LS)||"null");if(sv&&sv.items&&sv.items.length){items=sv.items;$("lim").value=sv.lim||"280";$("num").checked=sv.num!==false}}catch(e){}
-function save(){try{localStorage.setItem(LS,JSON.stringify({items:items,lim:$("lim").value,num:$("num").checked}))}catch(e){}}
+try{var sv=JSON.parse(localStorage.getItem(LS)||"null");if(sv&&sv.items&&sv.items.length){items=sv.items;$("lim").value=sv.lim||"280"}}catch(e){}
+function save(){try{localStorage.setItem(LS,JSON.stringify({items:items,lim:$("lim").value}))}catch(e){}}
 function cw(c){return((c>=0&&c<=4351)||(c>=8192&&c<=8205)||(c>=8208&&c<=8223)||(c>=8242&&c<=8247))?1:2}
 function gw(g){if(EMO.test(g))return 2;var s=0;for(var ch of g){s+=cw(ch.codePointAt(0))}return s}
 function textW(s){var t=0;if(seg){for(var x of seg.segment(s)){t+=gw(x.segment)}}else{for(var ch of s){t+=cw(ch.codePointAt(0))}}return t}
-function measure(s){var t=0,last=0,m;URLRE.lastIndex=0;while((m=URLRE.exec(s))){t+=textW(s.slice(last,m.index))+23;last=m.index+m[0].length}return t+textW(s.slice(last))}
+function measure(s){s=s.normalize("NFC");var t=0,last=0,m;URLRE.lastIndex=0;while((m=URLRE.exec(s))){t+=textW(s.slice(last,m.index))+23;last=m.index+m[0].length}return t+textW(s.slice(last))}
 function cutIndex(s,max){
 var t=0,last=0,m;URLRE.lastIndex=0;
 function scan(a,b){var part=s.slice(a,b),pos=a;
@@ -87,7 +88,7 @@ while((m=URLRE.exec(s))){var r=scan(last,m.index);if(r>=0)return r;if(t+23>max)r
 var r2=scan(last,s.length);return r2>=0?r2:s.length}
 function esc(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
 function lim(){return +$("lim").value}
-function suf(i){return($("num").checked&&items.length>1)?" ("+(i+1)+"/"+items.length+")":""}
+function suf(i){return""}
 function full(i){return items[i].replace(/\s+$/,"")+suf(i)}
 function smartCut(s,max){
 var k=cutIndex(s,max),head=s.slice(0,k),best=-1,m;
@@ -95,13 +96,15 @@ var re=/[.!?。！？…]+["'”’)\]]*[ \t]*|\n+/g;
 while((m=re.exec(head))){best=m.index+m[0].length}
 if(best<head.length*0.3){var sp=head.search(/\s\S*$/);best=sp>0?sp+1:k}
 return best>0?best:k}
+function smartCut2(s,max){var k=cutIndex(s,max);if(k>=s.length)return k;var head=s.slice(0,k),sb=-1,m,re=/[.!?。！？…]+["'”’)\]]*[ \t]*|\n+/g;while((m=re.exec(head))){sb=m.index+m[0].length}if(sb>0&&measure(head.slice(sb))<=24)return sb;if(/\s/.test(s.charAt(k)))return k;var sp=head.search(/\s\S*$/);return sp>0?sp+1:k}
+function cutFor(i){return smartCut2(items[i],lim())}
 function refresh(i){
 var c=$("c"+i);if(!c)return;
 var max=lim(),txt=full(i),n=items[i].trim()?measure(txt):0,over=n>max;
 var cn=c.querySelector(".num");cn.textContent=n+" / "+max;cn.className="num"+(over?" over":"");
 var rg=c.querySelector(".ring");rg.style.setProperty("--p",Math.min(100,n/max*100)+"%");rg.style.setProperty("--c",over?"var(--bad)":(n>max*0.9?"#ffd400":"var(--ac)"));
 var ov=c.querySelector(".ov");
-if(over){var reserve=$("num").checked&&items.length>1?9:0;var k=smartCut(items[i],max-reserve);
+if(over){var k=cutFor(i);
 ov.style.display="block";
 ov.innerHTML="<b>▼ "+(n-max)+"만큼 넘었습니다. 넘는 부분:</b><mark>"+esc(items[i].slice(k))+'</mark><br><button class="p" data-act="push">넘는 부분을 다음 트윗으로 보내기</button>'}
 else{ov.style.display="none";ov.innerHTML=""}}
@@ -112,7 +115,7 @@ items.forEach(function(t,i){
 var d=document.createElement("div");d.className="card"+(i>0?" thread":"");d.id="c"+i;d.dataset.i=i;
 d.innerHTML='<div class="hd"><span>'+(i+1)+" / "+items.length+'</span><span><button data-act="copy">복사</button> <button data-act="add">+ 아래에 추가</button>'+(items.length>1?' <button class="d" data-act="del">삭제</button>':"")+'</span></div><textarea placeholder="'+(i?"이어질 내용을 입력하세요":"메모장에 쓰던 글을 붙여넣으세요")+'"></textarea><div class="row"><span class="num"></span><div class="ring"></div></div><div class="ov"></div>';
 var ta=d.querySelector("textarea");ta.value=t;
-ta.addEventListener("input",function(){items[i]=ta.value;refresh(i);save()});
+ta.addEventListener("input",function(){items[i]=ta.value;lastI=i;refresh(i);save()});ta.addEventListener("focus",function(){lastI=i});
 list.appendChild(d)});
 refreshAll()}
 function copyText(t,btn){
@@ -126,15 +129,34 @@ if(a==="copy")copyText(full(i),b);
 else if(a==="add"){items.splice(i+1,0,"");render();$("c"+(i+1)).querySelector("textarea").focus()}
 else if(a==="del"){items.splice(i,1);render()}
 else if(a==="push"){
-var reserve=$("num").checked&&items.length>1?9:0;
-var s=items[i],k=smartCut(s,lim()-reserve);
+var s=items[i],k=cutFor(i);
 var rest=s.slice(k).replace(/^\s+/,"");items[i]=s.slice(0,k).replace(/\s+$/,"");
 if(i+1<items.length&&items[i+1].trim()){items[i+1]=rest+"\n"+items[i+1]}else if(i+1<items.length){items[i+1]=rest}else{items.push(rest)}
 render()}});
 $("addEnd").onclick=function(){items.push("");render();$("c"+(items.length-1)).querySelector("textarea").focus()};
 $("all").onclick=function(){copyText(items.map(function(_,i){return full(i)}).join("\n\n"),this)};
+var lastI=0;
+function analyze(){
+var s=(items[lastI]||"").normalize("NFC"),n={h:0,j:0,a:0,sp:0,nl:0},oth={},k;
+for(var ch of s){var cp=ch.codePointAt(0);
+if((cp>=44032&&cp<=55203)||(cp>=4352&&cp<=4607)||(cp>=12592&&cp<=12687))n.h++;
+else if((cp>=19968&&cp<=40959)||(cp>=63744&&cp<=64255)||(cp>=13312&&cp<=19903))n.j++;
+else if(/[0-9A-Za-z]/.test(ch))n.a++;
+else if(ch==="\n")n.nl++;
+else if(ch===" ")n.sp++;
+else{k=ch+" U+"+cp.toString(16).toUpperCase()+" (가중치 "+cw(cp)+")";oth[k]=(oth[k]||0)+1}}
+var L=["카드 "+(lastI+1)+"번"];
+if(n.h)L.push("한글 "+n.h+"자 × 2 = "+n.h*2);
+if(n.j)L.push("한자 "+n.j+"자 × 2 = "+n.j*2);
+if(n.a)L.push("영문·숫자 "+n.a+"자 × 1 = "+n.a);
+if(n.sp)L.push("띄어쓰기 "+n.sp+"개 × 1 = "+n.sp);
+if(n.nl)L.push("줄바꿈 "+n.nl+"개 × 1 = "+n.nl);
+for(k in oth)L.push("기호·기타 "+k+" × "+oth[k]+"개");
+L.push("합계 "+measure(items[lastI]||""));
+$("anout").textContent=L.join("\n")}
+$("an").onclick=analyze;
 $("lim").onchange=refreshAll;
-$("num").onchange=refreshAll;
+
 function units(s){var o=[],re=/[^.!?。！？…\n]+(?:[.!?。！？…]+["'”’)\]]*)?[ \t]*|\n+/g,m;while((m=re.exec(s))){o.push(m[0])}return o}
 function hardSplit(u,max){
 var parts=[],cur="";
@@ -144,7 +166,7 @@ if(measure(cur+wd)<=max){cur+=wd}else{parts.push(cur);cur=wd}});
 if(cur)parts.push(cur);return parts}
 $("split").onclick=function(){
 var s=$("bulk").value;if(!s.trim())return;
-var max=lim(),budget=$("num").checked?max-9:max;
+var max=lim(),budget=max;
 var us=[];units(s).forEach(function(u){if(measure(u)>budget){hardSplit(u,budget).forEach(function(p){us.push(p)})}else{us.push(u)}});
 var ch=[],cur="";
 us.forEach(function(u){if(measure((cur+u).trim())<=budget){cur+=u}else{if(cur.trim())ch.push(cur.trim());cur=u.replace(/^\s+/,"")}});
