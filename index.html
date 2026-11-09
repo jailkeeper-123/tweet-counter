@@ -156,6 +156,8 @@ for(k in oth)L.push("기호·기타 "+k+" × "+oth[k]+"개");
 L.push("합계 "+measure(items[lastI]||""));
 $("anout").textContent=L.join("\n")}
 $("an").onclick=analyze;
+function kick(){var d=document.documentElement;d.style.opacity=".999";setTimeout(function(){d.style.opacity=""},60)}
+window.addEventListener("resize",kick);window.addEventListener("focus",kick);document.addEventListener("visibilitychange",kick);
 $("lim").onchange=refreshAll;
 
 function units(s){var o=[],re=/[^.!?。！？…\n]+(?:[.!?。！？…]+["'”’)\]]*)?[ \t]*|\n+/g,m;while((m=re.exec(s))){o.push(m[0])}return o}
