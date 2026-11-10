@@ -37,7 +37,7 @@ textarea:focus{outline:none}textarea::placeholder{color:var(--mu)}.ta{position:r
 .add{width:100%;border-color:var(--ac);color:var(--ac);padding:10px;margin-bottom:14px}
 details{background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:14px 16px;margin-top:6px}
 summary{cursor:pointer;font-size:14px;font-weight:600}
-.hint{font-size:12px;color:var(--mu);margin:6px 0 0}.an{font-size:13px;line-height:1.7;white-space:pre-wrap;margin-top:8px;color:var(--mu)}
+.hint{font-size:12px;color:var(--mu);margin:6px 0 0}.an{font-size:13px;line-height:1.7;white-space:pre-wrap;margin-top:8px;color:var(--mu)}details+details{margin-top:10px}.dr{border:1px solid var(--bd);border-radius:12px;padding:10px 12px;margin-top:10px}.dt{font-weight:700;word-break:break-word}.dm{font-size:12px;color:var(--mu);margin:2px 0 8px}.dr .b{display:flex;gap:8px;flex-wrap:wrap}
 </style>
 </head>
 <body>
@@ -52,11 +52,14 @@ summary{cursor:pointer;font-size:14px;font-weight:600}
 <option value="25000">프리미엄+ 25,000</option>
 </select>
 
+<button id="sv">임시 저장</button>
 <button id="all">전체 복사</button>
+<button id="clr" class="d">모두 지우기</button>
 </div>
 
 <div id="list"></div>
 <button class="add" id="addEnd">+ 타래 추가</button>
+<details><summary>임시 저장함 (<span id="dc">0</span>)</summary><p class="hint">임시 저장함은 지금 사용 중인 브라우저에만 저장됩니다. 다른 브라우저(엣지·크롬 등)나 다른 기기에서는 보이지 않으며, 브라우저의 사이트 데이터를 지우면 저장한 글도 함께 사라집니다.</p><div id="dl"></div></details>
 
 <details>
 <summary>긴 글을 한 번에 붙여넣어 자동으로 나누기</summary>
@@ -109,9 +112,9 @@ var max=lim(),txt=full(i),n=items[i].trim()?measure(txt):0,over=n>max;
 var cn=c.querySelector(".num");cn.textContent=n+" / "+max;cn.className="num"+(over?" over":"");
 var rg=c.querySelector(".ring");rg.style.setProperty("--p",Math.min(100,n/max*100)+"%");rg.style.setProperty("--c",over?"var(--bad)":(n>max*0.9?"#ffd400":"var(--ac)"));
 var ov=c.querySelector(".ov");
-if(over){var k=cutFor(i);
+if(over){
 ov.style.display="block";
-ov.innerHTML="<b>▼ "+(n-max)+"만큼 넘었습니다. 넘는 부분:</b><mark>"+esc(items[i].slice(k))+'</mark><br><button class="p" data-act="push">넘는 부분을 다음 트윗으로 보내기</button>'}
+ov.innerHTML="<b>● "+(n-max)+"만큼 넘었습니다.</b>"+'<button class="p" data-act="push">넘는 부분을 다음 트윗으로 보내기</button>'}
 else{ov.style.display="none";ov.innerHTML=""}}
 function refreshAll(){for(var i=0;i<items.length;i++)refresh(i);save()}
 function render(){
@@ -162,6 +165,40 @@ $("anout").textContent=L.join("\n")}
 $("an").onclick=analyze;
 function kick(){var d=document.documentElement;d.style.opacity=".999";setTimeout(function(){d.style.opacity=""},60)}
 window.addEventListener("resize",function(){kick();items.forEach(function(_,i){var c=$("c"+i);if(c)paint(c,i)})});window.addEventListener("focus",kick);document.addEventListener("visibilitychange",kick);
+var clr=$("clr"),clrT;
+clr.onclick=function(){
+if(clr.dataset.sure){clearTimeout(clrT);clr.dataset.sure="";clr.textContent="모두 지우기";items=[""];$("bulk").value="";render();$("c0").querySelector("textarea").focus();return}
+clr.dataset.sure="1";clr.textContent="정말 지울까요?";
+clrT=setTimeout(function(){clr.dataset.sure="";clr.textContent="모두 지우기"},3000)};
+var DK="tweet-counter-drafts-v1";
+function loadDrafts(){try{return JSON.parse(localStorage.getItem(DK)||"[]")}catch(e){return[]}}
+function storeDrafts(d){try{localStorage.setItem(DK,JSON.stringify(d));return true}catch(e){return false}}
+function hasText(){return items.some(function(t){return t.trim()})}
+function flash(b,t){if(!b.dataset.o0)b.dataset.o0=b.textContent;b.textContent=t;setTimeout(function(){b.textContent=b.dataset.o0},1400)}
+function two(b,label,fn){
+if(b.dataset.s){clearTimeout(b._t);b.dataset.s="";b.textContent=b.dataset.o;fn();return}
+b.dataset.s="1";b.dataset.o=b.textContent;b.textContent=label;
+b._t=setTimeout(function(){b.dataset.s="";b.textContent=b.dataset.o},3000)}
+function stamp(){var d=new Date(),p=function(n){return(n<10?"0":"")+n};return(d.getMonth()+1)+"월 "+d.getDate()+"일 "+p(d.getHours())+":"+p(d.getMinutes())}
+function renderDrafts(){
+var ds=loadDrafts(),box=$("dl");$("dc").textContent=ds.length;box.innerHTML="";
+if(!ds.length){box.innerHTML='<p class="hint">저장된 글이 없습니다. 위의 “임시 저장”을 눌러 보세요.</p>';return}
+ds.forEach(function(d){
+var e=document.createElement("div");e.className="dr";
+e.innerHTML='<div class="dt"></div><div class="dm"></div><div class="b"><button data-a="load">불러오기</button><button class="d" data-a="del">삭제</button></div>';
+e.querySelector(".dt").textContent=d.title;
+e.querySelector(".dm").textContent=d.items.length+"개 트윗 · "+d.when;
+e.querySelector('[data-a="load"]').onclick=function(){
+var go=function(){items=d.items.slice();render();window.scrollTo(0,0)};
+if(hasText())two(this,"지금 글이 대체돼요. 한 번 더",go);else go()};
+e.querySelector('[data-a="del"]').onclick=function(){two(this,"정말 삭제?",function(){var all=loadDrafts().filter(function(x){return x.id!==d.id});storeDrafts(all);renderDrafts()})};
+box.appendChild(e)})}
+$("sv").onclick=function(){
+var b=this;if(!hasText()){flash(b,"저장할 글이 없어요");return}
+var first=(items.filter(function(t){return t.trim()})[0]||"").trim().split("\n")[0];
+var ds=loadDrafts();ds.unshift({id:Date.now(),title:first.slice(0,30)||"(제목 없음)",items:items.slice(),when:stamp()});
+if(storeDrafts(ds.slice(0,50))){renderDrafts();flash(b,"저장했어요")}else{flash(b,"저장이 막혀 있어요")}};
+renderDrafts();
 $("lim").onchange=refreshAll;
 
 function units(s){var o=[],re=/[^.!?。！？…\n]+(?:[.!?。！？…]+["'”’)\]]*)?[ \t]*|\n+/g,m;while((m=re.exec(s))){o.push(m[0])}return o}
